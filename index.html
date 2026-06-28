@@ -62,6 +62,7 @@ h1{margin:0;font-size:clamp(25px,4vw,40px);letter-spacing:-.04em}.subtitle{color
 .explain{font-size:13px;color:var(--muted);line-height:1.6}
 .empty{color:var(--muted);font-size:13px;text-align:center;padding:20px}
 .footer{color:var(--muted);font-size:12px;text-align:center;padding:24px}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(120px);background:#102949;border:1px solid #2a527d;color:var(--text);padding:12px 14px;border-radius:13px;box-shadow:var(--shadow);display:flex;align-items:center;gap:14px;z-index:100;transition:.25s;max-width:92vw}.toast.show{transform:translateX(-50%) translateY(0)}.toast button{border:0;background:transparent;color:var(--cyan);font-weight:800;cursor:pointer}
 @media(max-width:1200px){.metrics{grid-template-columns:repeat(4,1fr)}.layout{grid-template-columns:1fr}}
 @media(max-width:720px){.app{padding:12px}.topbar{align-items:flex-start;flex-direction:column}.metrics{grid-template-columns:repeat(2,1fr)}.chart-wrap{grid-template-columns:1fr}.form-grid,.valuation-grid{grid-template-columns:1fr}.field.wide{grid-column:auto}.table{display:block;overflow:auto}}
 </style>
@@ -170,6 +171,7 @@ h1{margin:0;font-size:clamp(25px,4vw,40px);letter-spacing:-.04em}.subtitle{color
 
   <div class="footer">Prototype architecture: Notion records → secure connector → GitHub-hosted dashboard → Notion embed</div>
 </div>
+<div class="toast" id="toast"><span id="toastText">Item deleted.</span><button id="undoBtn" type="button">Undo</button></div>
 
 <script>
 const sampleAssets=[
@@ -259,8 +261,39 @@ function updateBusinessValue(){
   biz={profit:Number(document.getElementById('bizProfit').value)||0,multiple:Number(document.getElementById('bizMultiple').value)||0,premium:Number(document.getElementById('bizPremium').value)||0,liabilities:Number(document.getElementById('bizLiabilities').value)||0};
   save();render();
 }
-function deleteAsset(id){if(confirm('Remove this asset from the prototype?')){assets=assets.filter(a=>a.id!==id);save();render()}}
-function deleteDebt(id){if(confirm('Remove this debt from the prototype?')){debts=debts.filter(d=>d.id!==id);save();render()}}
+let lastDeleted=null;
+let toastTimer=null;
+function showUndo(message){
+  document.getElementById('toastText').textContent=message;
+  const toast=document.getElementById('toast');
+  toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>{toast.classList.remove('show');lastDeleted=null},6000);
+}
+function deleteAsset(id){
+  const index=assets.findIndex(a=>a.id===id);
+  if(index<0)return;
+  const item=assets[index];
+  assets.splice(index,1);
+  lastDeleted={type:'asset',item,index};
+  save();render();showUndo(`${item.name} removed.`);
+}
+function deleteDebt(id){
+  const index=debts.findIndex(d=>d.id===id);
+  if(index<0)return;
+  const item=debts[index];
+  debts.splice(index,1);
+  lastDeleted={type:'debt',item,index};
+  save();render();showUndo(`${item.name} removed.`);
+}
+document.getElementById('undoBtn').onclick=()=>{
+  if(!lastDeleted)return;
+  if(lastDeleted.type==='asset')assets.splice(lastDeleted.index,0,lastDeleted.item);
+  else debts.splice(lastDeleted.index,0,lastDeleted.item);
+  save();render();
+  document.getElementById('toast').classList.remove('show');
+  lastDeleted=null;clearTimeout(toastTimer);
+};
 function resetSample(){assets=JSON.parse(JSON.stringify(sampleAssets));debts=JSON.parse(JSON.stringify(sampleDebts));biz=JSON.parse(JSON.stringify(sampleBiz));save();render()}
 render();
 </script>
